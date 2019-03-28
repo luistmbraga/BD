@@ -1,0 +1,260 @@
+Query1
+ 
+Criação da query1:
+db.system.js.save({
+				_id: "query1", 
+					value : function(num_aut,d_in,d_fin){return db.Autoestrada.distinct(
+																					"trocos.registos.Matricula", 
+																					{
+																						_id: num_aut, 
+																						"trocos.registos.Data_inicial":{"$gte": new Date(d_in)},
+																						"trocos.registos.Data_final":{"$lte": new Date(d_fin)} 
+																					}
+																					).length;}
+				})
+
+
+ Execução da query1:
+ db.loadServerScripts()
+ query1(1,"2017-01-01","2017-12-31")
+ 6
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Query2
+
+db.system.js.save(
+		{_id: "query2", 
+			value : function(ano){
+	var resultado = []
+	var balanco = 0
+	var despesas = 0
+	var ganhos = 0
+
+	db.Autoestrada.aggregate([{$unwind: "$despesas"}, 
+	                          {$group: {_id:{$year: "$despesas.data"} , total_gasto: {$sum:"$despesas.valor"}}},
+	                          {$match: {_id: ano}}])
+	                          .forEach(function(u){despesas = u.total_gasto})
+
+    db.Autoestrada.aggregate([{$unwind: "$trocos"},{$unwind: "$trocos.registos"},
+                              {$group: {_id: {$year: "$trocos.registos.Data_final"}, total_ganho:{$sum:"$trocos.registos.Montante"}}}, 
+                              {$match: {_id: ano}}])
+                              .forEach(function(u){ganhos = u.total_ganho})
+
+	balanco = ganhos-despesas
+
+	var d = []
+	d.push("Gastos")
+	d.push(despesas)
+
+	var g = []
+	g.push("Ganhos")
+	g.push(ganhos)
+
+	var b = []
+	b.push("Balanco")
+	b.push(balanco)
+
+	resultado.push(d)
+	resultado.push(g)
+	resultado.push(b)
+
+	return resultado
+}})
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Query3
+
+
+Criação da query3:
+db.system.js.save({
+				_id: "query3",
+				value: function(){
+					return db.Autoestrada.aggregate([
+						{$unwind : "$trocos"},
+						{$unwind : "$trocos.registos"},
+						{
+							$group : {
+								_id : {
+									"matricula" : "$trocos.registos.Matricula",
+									"proprietario" : "$trocos.registos.Proprietario"
+								},
+								total : { $sum : "$trocos.registos.Montante" }
+						 	}
+						},
+						{
+							$sort : { total : -1 }
+						},
+						{
+							$limit : 5
+						},
+						{ 
+							$project: { 
+								_id : 0,
+								matricula : "$_id.matricula",
+								proprietario : "$_id.proprietario",
+						       	total : 1
+					    	}
+					    }
+					]);
+					}
+
+})
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Query4
+
+Criação da query4:
+db.system.js.save({
+				_id: "query4",
+				value: function(){
+					return db.Autoestrada.aggregate([
+									{$unwind : "$trocos"},
+									{$unwind : "$trocos.registos"},
+									{
+										$group : {
+											_id : "$trocos.registos.Matricula",
+											total : { $sum : "$trocos.distancia" },
+									 	}
+									},
+									{
+										$sort : { total : -1 }
+									},
+									{
+										$limit : 10
+									},
+									{ 
+										$project: {  
+									    	_id : 0,
+									    	matricula : "$_id",
+									    	total : 1
+								    	}
+								    }
+							]);
+				}
+})
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Query5
+
+Criação da query5:
+db.system.js.save({
+			_id:"query5",
+			value: function(){
+				return db.Autoestrada.aggregate([
+								{$unwind : "$trocos"},
+								{$unwind : "$trocos.registos"},
+								{
+									$sort : { "trocos.registos.Categoria" : 1 }
+								},
+								{ 
+									$project: { 
+										_id : 0,
+										data_inicial : "$trocos.registos.Data_inicial",
+										data_final : "$trocos.registos.Data_final",
+										montante : "$trocos.registos.Montante",
+										categoria : "$trocos.registos.Categoria"
+							    	}
+							    }
+							]);
+			}
+})
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Query6
+
+Criação da query6:
+db.system.js.save({
+			_id: "query6",
+				value: function(descr){ return db.Autoestrada.aggregate([
+																		{$unwind: "$despesas"}, 
+  																		{$match:{"despesas.descricao": {$regex: descr}}},
+																		{$group:{
+																			_id:null, 
+																			Custo_total: {$sum: "$despesas.valor"}
+																		}},
+																		{$project: {
+																			_id:0, 
+																			Custo_total:1
+																		}}
+															]);
+										}
+})
+
+Resultado de executar query6:
+db.loadServerScripts()
+query6("Limpeza")
+
+{"_id": null, "Custo_total": 5000}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Query7
+
+db.system.js.save(
+		{_id: "query7", 
+			value : function(ano){
+	var resultado = []
+
+	var ids = db.Autoestrada.find({},{_id:1})
+		
+	ids.forEach(function(u){resultado.push(query7Aux(u._id, ano))})
+
+	return resultado
+}})
+
+db.system.js.save(
+		{_id: "query7Aux", 
+			value : function(id, ano){
+	var resultado = []
+	var balanco = 0
+	var despesas = 0
+	var ganhos = 0
+
+	db.Autoestrada.aggregate([{$unwind: "$despesas"}, 
+	                          {$group: {_id: {id: "$_id",ano: {$year: "$despesas.data"}} , total_gasto: {$sum:"$despesas.valor"}}},
+	                          {$match: {"_id.ano": ano}},
+	                          {$match: {"_id.id": id}}])
+	                          .forEach(function(u){despesas = u.total_gasto})
+
+    db.Autoestrada.aggregate([{$unwind: "$trocos"},
+    						  {$unwind: "$trocos.registos"},
+    						  {$group: {_id:  {id: "$_id",ano: {$year: "$trocos.registos.Data_final"}}, total_ganho:{$sum:"$trocos.registos.Montante"}}}, 
+    						  {$match: {"_id.ano": ano}},
+    						  {$match: {"_id.id":id}}])
+    						  .forEach(function(u){ganhos = u.total_ganho})
+
+	balanco = ganhos-despesas
+
+	var auto = []
+	auto.push("autoestrada")
+	auto.push(id)
+
+	var d = []
+	d.push("Gastos")
+	d.push(despesas)
+
+	var g = []
+	g.push("Ganhos")
+	g.push(ganhos)
+
+	var b = []
+	b.push("Balanco")
+	b.push(balanco)
+
+	resultado.push(auto)
+	resultado.push(d)
+	resultado.push(g)
+	resultado.push(b)
+
+	return resultado
+}})
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
