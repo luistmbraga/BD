@@ -1,3 +1,5 @@
+![alt text](https://github.com/BragaMann/CP/blob/master/baseDeDadosFinal.png)
+
 # Base de Dados - 18/19
 
 Repositório para o projecto da UC Base de Dados
